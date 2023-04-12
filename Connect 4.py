@@ -103,7 +103,9 @@ def check_draw(board):
                 return False
     return True
 
-def MiniMax(new_board, maximisingPlayer, alpha, beta, depth, yellowPieces, redPieces):
+def MiniMax(new_board, maximisingPlayer, alpha, beta, depth):
+
+    #print("New_Board: " + str(new_board[5][:]))
 
     player = 2
     opponent = 1
@@ -219,6 +221,7 @@ def find_best_move(board):
             new_board = drop_piece(x, 2, new_board)
             value = MiniMax(new_board, False, -math.inf, math.inf, depth, 21, 21)
             print("Val: " +str(value))
+            print(new_board[:][:])
             new_board = undo_move(x, 2, new_board)
 
             if (value > bestVal):
