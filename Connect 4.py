@@ -2,6 +2,7 @@ import pygame
 import math
 import sys
 from copy import deepcopy
+import numpy as np
 
 # Constants
 ROW_COUNT = 6
@@ -102,21 +103,22 @@ def check_draw(board):
                 return False
     return True
 
-def MiniMax(new_board, maximisingPlayer, alpha, beta, depth):
-
-    #print("New_Board: " + str(new_board[5][:]))
+def MiniMax(new_board, maximisingPlayer, alpha, beta, depth, yellowPieces, redPieces):
 
     player = 2
     opponent = 1
 
     if check_win(player, new_board):
-        return 1e6
+        return 1e6 + yellowPieces
 
     if check_win(opponent, new_board):
-        return -1e6 
+        return -1e6 - redPieces
 
     if check_draw(new_board):
         return 0
+
+    if depth == 0:
+        return evaluate_score(new_board, 2)
     
     if maximisingPlayer:
         max_value = -math.inf
@@ -124,7 +126,7 @@ def MiniMax(new_board, maximisingPlayer, alpha, beta, depth):
             if is_valid_space(i, new_board):
                 child = deepcopy(new_board)
                 child = drop_piece(i, player, child)
-                max_value = max(max_value, MiniMax(child, False, alpha, beta, depth - 1))
+                max_value = max(max_value, MiniMax(child, False, alpha, beta, depth - 1, yellowPieces - 1, redPieces))
                 alpha = max(alpha, max_value)
                 if (alpha >= beta):
                     break
@@ -137,7 +139,7 @@ def MiniMax(new_board, maximisingPlayer, alpha, beta, depth):
             if is_valid_space(i, new_board):
                 child = deepcopy(new_board)
                 child = drop_piece(i, opponent, child)
-                min_value = min(min_value, MiniMax(child, True, alpha, beta, depth - 1))
+                min_value = min(min_value, MiniMax(child, True, alpha, beta, depth - 1, yellowPieces, redPieces - 1))
                 beta = min(beta, min_value)
                 if (alpha >= beta):
                     break
@@ -146,7 +148,6 @@ def MiniMax(new_board, maximisingPlayer, alpha, beta, depth):
 
 def evaluate_window(window, piece):
     score = 0
-    empty = 0
     
     if piece == 2:
         opp_piece = 1
@@ -154,38 +155,70 @@ def evaluate_window(window, piece):
         opp_piece = 2
 
     if piece == 2:
-        if window.count(piece) == 4 and window.count(empty) == 0:
-            score = 100
+        if (np.count_nonzero(window == piece) == 4) and np.count_nonzero(window == 0):
+            score += 100
 
-        if window.count(piece) == 3 and window.count(empty) == 1:
-            score = 5
+        elif (np.count_nonzero(window == piece) == 3) and np.count_nonzero(window == 1):
+            score += 5
 
-        if window.count(piece) == 2 and window.count(empty) == 2:
-            score = 2
+        elif (np.count_nonzero(window == piece) == 2) and np.count_nonzero(window == 2):
+            score += 2
 
     else:
-        if window.count(opp_piece) == 3 and window.count(empty) == 1:
-            score = -4
+        if (np.count_nonzero(window == opp_piece) == 4) and np.count_nonzero(window == 0):
+            score += -4
 
     return score
 
 
-def evaluate_score(board):
-    pass
+def evaluate_score(board, piece):
+    window_length = 4
+    score = 0
+
+    # # Score center column
+    # center_column  = board[:, 3]
+    # center_count = np.count_nonzero(center_column == piece)
+    # score += (center_count * 3)
+
+    #check columns
+    for c in range(COLUMN_COUNT):
+        col_array = board[:, c]
+        for r in range(ROW_COUNT - 3):
+            window = col_array[r:(r+window_length)]
+            score += evaluate_window(window, piece)
+
+    #check rows
+    for r in range(ROW_COUNT):
+        row_array = board[r, :]
+        for c in range(COLUMN_COUNT - 3):
+            window = row_array[c:(c+window_length)]
+            score += evaluate_window(window, piece)
+
+    # Check diagonal (positive slope)
+    for i in range(ROW_COUNT - 3):
+        for j in range(COLUMN_COUNT - 3):
+            window = [board[i, j], board[i + 1, j + 1], board[i + 2, j + 2], board[i + 3, j + 3]]
+            score += evaluate_window(window, piece)
+
+    # Check diagonal (negative slope)
+    for i in range(ROW_COUNT - 3):
+        for j in range(3, COLUMN_COUNT):
+                window = [board[i, j], board[i + 1, j - 1], board[i + 2, j - 2], board[i + 3, j - 3]]
+                score += evaluate_window(window, piece)
+    return score
+
 
 def find_best_move(board):
     bestVal = -math.inf 
     bestMove = -1
     new_board = deepcopy(board)
-    depth = 4
+    depth = 5
     
     for x in range(COLUMN_COUNT):
         if is_valid_space(x, new_board):
             new_board = drop_piece(x, 2, new_board)
-            print(new_board[:][:])
-            value = MiniMax(new_board, False, -math.inf, math.inf, depth)
+            value = MiniMax(new_board, False, -math.inf, math.inf, depth, 21, 21)
             print("Val: " +str(value))
-            print(new_board[:][:])
             new_board = undo_move(x, 2, new_board)
 
             if (value > bestVal):
@@ -193,12 +226,34 @@ def find_best_move(board):
                 bestMove = x
 
     return bestMove
-        
+
+def gameWin_display(turn, board):
+    winner = "Player 1 (Red)" if turn == 1 else "Player 2 (Yellow)"
+    font = pygame.font.SysFont(None, 35)
+    text = font.render(f"{winner} wins!", True, RED if turn == 1 else YELLOW)
+    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, text.get_height() // 2))
+    draw_pieces(board)
+    pygame.display.update()
+    pygame.time.delay(8000)
+
+    return
+
+def gameDraw_display(board):    
+
+    font = pygame.font.SysFont(None, 35)
+    text = font.render("Draw!", True, YELLOW)
+    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, text.get_height() // 2))
+    draw_pieces(board)
+    pygame.display.update()
+    pygame.time.delay(8000)
+
+    return
 
 def play_game():
     
     # Game Board
-    board = [[0] * COLUMN_COUNT for _ in range(ROW_COUNT)]
+    #board = [[0] * COLUMN_COUNT for _ in range(ROW_COUNT)]
+    board = np.zeros(shape=(ROW_COUNT,COLUMN_COUNT), dtype=np.uint8)
     turn = 1
     game_over = False
 
@@ -227,41 +282,39 @@ def play_game():
 
                     if check_win(turn, board):
                         game_over = True
-                        winner = "Player 1 (Red)" if turn == 1 else "Player 2 (Yellow)"
-                        font = pygame.font.SysFont(None, 35)
-                        text = font.render(f"{winner} wins!", True, RED if turn == 1 else YELLOW)
-                        screen.blit(text, (WIDTH // 2 - text.get_width() // 2, text.get_height() // 2))
-                        draw_pieces(board)
-                        pygame.display.update()
-                        pygame.time.delay(8000)
+                        gameWin_display(turn, board)
                         return
 
                     if check_draw(board):
                         game_over = True
-                        font = pygame.font.SysFont(None, 35)
-                        text = font.render("Draw!", True, YELLOW)
-                        screen.blit(text, (WIDTH // 2 - text.get_width() // 2, text.get_height() // 2))
-                        draw_pieces(board)
-                        pygame.display.update()
-                        pygame.time.delay(8000)
+                        gameDraw_display(board)
                         return
 
                     turn = 3 - turn
 
         if turn == 2:
-            #print(board[:][:])
             column = find_best_move(board)
             # AI drops piece
-            print(column)
-            print(board[0][:])
+            # print(column)
+            print(board[:][:])
             board = drop_piece(column, 2, board)
-            turn = 3 - turn
 
+            if check_win(turn, board):
+                game_over = True
+                gameWin_display(turn, board)
+                return
+
+            if check_draw(board):
+                game_over = True
+                gameDraw_display(board)
+                return
+
+            # switch player
+            turn = 3 - turn
 
         draw_board()
         draw_pieces(board)
         pygame.display.update()
-
 
 play_game()
 pygame.quit()
