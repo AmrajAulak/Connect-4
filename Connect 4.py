@@ -111,10 +111,10 @@ def MiniMax(new_board, maximisingPlayer, alpha, beta, depth, yellowPieces, redPi
     opponent = 1
 
     if check_win(player, new_board):
-        return 1e6 + yellowPieces
+        return 1e6 #+ yellowPieces
 
     if check_win(opponent, new_board):
-        return -1e6 - redPieces
+        return -1e6 #- redPieces
 
     if check_draw(new_board):
         return 0
@@ -128,7 +128,7 @@ def MiniMax(new_board, maximisingPlayer, alpha, beta, depth, yellowPieces, redPi
             if is_valid_space(i, new_board):
                 child = deepcopy(new_board)
                 child = drop_piece(i, player, child)
-                max_value = max(max_value, MiniMax(child, False, alpha, beta, depth - 1, yellowPieces - 1, redPieces))
+                max_value = max(max_value, MiniMax(child, False, alpha, beta, depth - 1, yellowPieces, redPieces-1))
                 alpha = max(alpha, max_value)
                 if (alpha >= beta):
                     break
@@ -141,7 +141,7 @@ def MiniMax(new_board, maximisingPlayer, alpha, beta, depth, yellowPieces, redPi
             if is_valid_space(i, new_board):
                 child = deepcopy(new_board)
                 child = drop_piece(i, opponent, child)
-                min_value = min(min_value, MiniMax(child, True, alpha, beta, depth - 1, yellowPieces, redPieces - 1))
+                min_value = min(min_value, MiniMax(child, True, alpha, beta, depth - 1, yellowPieces-1, redPieces))
                 beta = min(beta, min_value)
                 if (alpha >= beta):
                     break
